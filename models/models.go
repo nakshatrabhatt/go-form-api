@@ -75,8 +75,8 @@ type FormResponseAnswer struct {
 // User represents a user in the database
 type User struct {
 	gorm.Model
-	Username string `json:"username" gorm:"unique"`
-	Email    string `json:"email" gorm:"unique"`
-	Password string `json:"-"` // Password is not included in JSON responses
+	Username string `json:"username" gorm:"unique" binding:"required"`
+	Email    string `json:"email" gorm:"unique" binding:"required,email"`
+	Password string `json:"password" binding:"required"` // Password is not included in JSON responses
 	Forms    []Form `json:"-" gorm:"foreignKey:UserID"`
 }

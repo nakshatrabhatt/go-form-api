@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/nakshatrabhatt/go-form-api/controllers"
-	"github.com/nakshatrabhatt/go-form-api/controllers/auth_controller"
 	"github.com/nakshatrabhatt/go-form-api/database"
 	"github.com/nakshatrabhatt/go-form-api/middleware"
 )
@@ -40,8 +39,6 @@ func main() {
 	config.AllowCredentials = true
 
 	router.Use(cors.New(config))
-
-	router.POST("/api/register", Register)
 
 	// Public routes
 	public := router.Group("/api")
