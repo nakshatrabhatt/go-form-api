@@ -15,20 +15,20 @@ import (
 	"log"
 )
 
-// LoginRequest represents the login request body
+// Login request body
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 }
 
-// RegisterRequest represents the register request body
+// Register request body
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
-// AuthResponse represents the response after successful authentication
+// Response after successful authentication
 type AuthResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt string `json:"expiresAt"`
@@ -37,7 +37,7 @@ type AuthResponse struct {
 	Email     string `json:"email"`
 }
 
-// Register handles user registration
+// User registration
 func Register(c *gin.Context) {
 	// Debug request headers
 	log.Println("Request Headers:")
@@ -161,7 +161,7 @@ func Login(c *gin.Context) {
 	})
 }
 
-// GetUserProfile returns the profile of the authenticated user
+// Returns the profile of the authenticated user
 func GetUserProfile(c *gin.Context) {
 	// Get user ID from context (set by auth middleware)
 	userID, exists := c.Get("user_id")

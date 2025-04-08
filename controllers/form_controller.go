@@ -11,12 +11,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// CreateFormRequest represents the request to create a form
+// Request to create a form
 type CreateFormRequest struct {
-	Title       string             `json:"title" binding:"required"`
-	Description string             `json:"description"`
-	Fields      []CreateFieldInput `json:"fields" binding:"required,dive"`
-	// Original fields from forms.go
+	Title       string `json:"title" binding:"required"`
+	Description string `json:"description"`
+	// Original fields
 	Field1    string `json:"field1"`
 	Field2    string `json:"field2"`
 	Field3    string `json:"field3"`
@@ -49,21 +48,11 @@ type CreateFormRequest struct {
 	Field30   string `json:"field30"`
 }
 
-// CreateFieldInput represents a field in create form request
-type CreateFieldInput struct {
-	Label       string `json:"label" binding:"required"`
-	Type        string `json:"type" binding:"required"`
-	Required    bool   `json:"required"`
-	Placeholder string `json:"placeholder"`
-	Options     string `json:"options"`
-}
-
-// UpdateFormRequest represents the request to update a form
+// Request to update a form
 type UpdateFormRequest struct {
-	Title       string             `json:"title"`
-	Description string             `json:"description"`
-	Fields      []CreateFieldInput `json:"fields"`
-	// Original fields from forms.go
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	// Original fields 
 	Field1    string `json:"field1"`
 	Field2    string `json:"field2"`
 	Field3    string `json:"field3"`
@@ -96,7 +85,7 @@ type UpdateFormRequest struct {
 	Field30   string `json:"field30"`
 }
 
-// CreateForm handles form creation
+// Handles form creation
 func CreateForm(c *gin.Context) {
 	var request CreateFormRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -158,32 +147,11 @@ func CreateForm(c *gin.Context) {
 		return
 	}
 	
-	// Add fields to the form
-	for _, fieldInput := range request.Fields {
-		field := models.FormField{
-			FormID:      form.ID,
-			Label:       fieldInput.Label,
-			Type:        fieldInput.Type,
-			Required:    fieldInput.Required,
-			Placeholder: fieldInput.Placeholder,
-			Options:     fieldInput.Options,
-		}
-		
-		if err := tx.Create(&field).Error; err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form fields"})
-			return
-		}
-	}
-	
 	// Commit the transaction
 	if err := tx.Commit().Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction failed"})
 		return
 	}
-	
-	// Load the form with its fields
-	database.DB.Preload("Fields").First(&form, form.ID)
 	
 	c.JSON(http.StatusCreated, form)
 }
@@ -200,7 +168,7 @@ func GetForms(c *gin.Context) {
 	var forms []models.Form
 	
 	// Retrieve forms for the user
-	if err := database.DB.Where("user_id = ?", userID).Preload("Fields").Find(&forms).Error; err != nil {
+	if err := database.DB.Where("user_id = ?", userID).Find(&forms).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve forms"})
 		return
 	}
@@ -208,7 +176,7 @@ func GetForms(c *gin.Context) {
 	c.JSON(http.StatusOK, forms)
 }
 
-// GetFormByID returns a specific form by ID
+// Returns a specific form by ID
 func GetFormByID(c *gin.Context) {
 	// Get user ID from context
 	userID, exists := c.Get("user_id")
@@ -227,7 +195,7 @@ func GetFormByID(c *gin.Context) {
 	var form models.Form
 	
 	// Find form by ID and make sure it belongs to the user
-	if err := database.DB.Where("id = ? AND user_id = ?", formID, userID).Preload("Fields").First(&form).Error; err != nil {
+	if err := database.DB.Where("id = ? AND user_id = ?", formID, userID).First(&form).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Form not found"})
 		} else {
@@ -321,42 +289,11 @@ func UpdateForm(c *gin.Context) {
 		return
 	}
 	
-	// Update fields if provided
-	if request.Fields != nil {
-		// Delete existing fields
-		if err := tx.Where("form_id = ?", form.ID).Delete(&models.FormField{}).Error; err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update form fields"})
-			return
-		}
-		
-		// Create new fields
-		for _, fieldInput := range request.Fields {
-			field := models.FormField{
-				FormID:      form.ID,
-				Label:       fieldInput.Label,
-				Type:        fieldInput.Type,
-				Required:    fieldInput.Required,
-				Placeholder: fieldInput.Placeholder,
-				Options:     fieldInput.Options,
-			}
-			
-			if err := tx.Create(&field).Error; err != nil {
-				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form fields"})
-				return
-			}
-		}
-	}
-	
 	// Commit the transaction
 	if err := tx.Commit().Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction failed"})
 		return
 	}
-	
-	// Load the updated form with its fields
-	database.DB.Preload("Fields").First(&form, form.ID)
 	
 	c.JSON(http.StatusOK, form)
 }
@@ -392,13 +329,6 @@ func DeleteForm(c *gin.Context) {
 	// Begin a transaction
 	tx := database.DB.Begin()
 	
-	// Delete form fields first to maintain referential integrity
-	if err := tx.Where("form_id = ?", formID).Delete(&models.FormField{}).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete form fields"})
-		return
-	}
-	
 	// Delete the form
 	if err := tx.Delete(&form).Error; err != nil {
 		tx.Rollback()
@@ -413,125 +343,4 @@ func DeleteForm(c *gin.Context) {
 	}
 	
 	c.JSON(http.StatusOK, gin.H{"message": "Form deleted successfully"})
-}
-
-// SubmitFormResponse handles form submission
-func SubmitFormResponse(c *gin.Context) {
-	// Get form ID from URL parameter
-	formID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid form ID"})
-		return
-	}
-	
-	// Check if form exists
-	var form models.Form
-	if err := database.DB.Where("id = ?", formID).Preload("Fields").First(&form).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Form not found"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve form"})
-		}
-		return
-	}
-	
-	// Map of field IDs to field objects for validation
-	fieldMap := make(map[uint]models.FormField)
-	for _, field := range form.Fields {
-		fieldMap[field.ID] = field
-	}
-	
-	// Parse request body
-	var answers map[string]string
-	if err := c.ShouldBindJSON(&answers); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	
-	// Begin a transaction
-	tx := database.DB.Begin()
-	
-	// Create form response
-	response := models.FormResponse{
-		FormID: uint(formID),
-	}
-	
-	if err := tx.Create(&response).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form response"})
-		return
-	}
-	
-	// Add answers to the response
-	for fieldIDStr, value := range answers {
-		fieldID, err := strconv.ParseUint(fieldIDStr, 10, 32)
-		if err != nil {
-			continue // Skip invalid field IDs
-		}
-		
-		// Check if field exists in this form
-		if _, exists := fieldMap[uint(fieldID)]; !exists {
-			continue // Skip fields that don't belong to this form
-		}
-		
-		answer := models.FormResponseAnswer{
-			ResponseID: response.ID,
-			FieldID:    uint(fieldID),
-			Value:      value,
-		}
-		
-		if err := tx.Create(&answer).Error; err != nil {
-			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save form answers"})
-			return
-		}
-	}
-	
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction failed"})
-		return
-	}
-	
-	c.JSON(http.StatusCreated, gin.H{
-		"message":    "Form submitted successfully",
-		"responseId": response.ID,
-	})
-}
-
-// GetFormResponses returns all responses for a specific form
-func GetFormResponses(c *gin.Context) {
-	// Get user ID from context
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-	
-	// Get form ID from URL parameter
-	formID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid form ID"})
-		return
-	}
-	
-	// Check if form exists and belongs to the user
-	var form models.Form
-	if err := database.DB.Where("id = ? AND user_id = ?", formID, userID).First(&form).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Form not found"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve form"})
-		}
-		return
-	}
-	
-	// Retrieve all responses for this form
-	var responses []models.FormResponse
-	if err := database.DB.Where("form_id = ?", formID).Preload("Answers").Find(&responses).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve form responses"})
-		return
-	}
-	
-	c.JSON(http.StatusOK, responses)
 }

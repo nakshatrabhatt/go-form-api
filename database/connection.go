@@ -32,13 +32,10 @@ func ConnectDB() {
 	
 	fmt.Println("Connected to PostgreSQL database!")
 	
-	// Auto migrate all models
+	// Auto migrate only the models that exist
 	err = DB.AutoMigrate(
 		&models.User{},
 		&models.Form{},
-		&models.FormField{},
-		&models.FormResponse{},
-		&models.FormResponseAnswer{},
 	)
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)

@@ -8,7 +8,7 @@ import (
 	"github.com/nakshatrabhatt/go-form-api/auth"
 )
 
-// AuthMiddleware validates the JWT token before processing the request
+// Validates the JWT token before processing the request
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")

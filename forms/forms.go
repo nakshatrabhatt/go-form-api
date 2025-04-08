@@ -50,22 +50,10 @@ type Form struct {
 	CreatedAt   string `json:"created_at"`
 }
 
-// FormField represents a structured field in a form
-type FormField struct {
-	ID          int    `json:"id"`
-	FormID      int    `json:"form_id"`
-	Label       string `json:"label"`
-	Type        string `json:"type"`
-	Required    bool   `json:"required"`
-	Placeholder string `json:"placeholder"`
-	Options     string `json:"options"`
-}
-
 // CreateFormRequest represents the request structure for creating a form
 type CreateFormRequest struct {
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	Fields      []FormField `json:"fields"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
 	// Original fields
 	Field1  string `json:"field1"`
 	Field2  string `json:"field2"`
@@ -206,57 +194,14 @@ func CreateForm(w http.ResponseWriter, r *http.Request) {
 
 	form.ID = lastInsertID
 
-	// Insert form fields if provided
-	if len(request.Fields) > 0 {
-		for _, field := range request.Fields {
-			result := tx.Exec(`
-				INSERT INTO form_fields (form_id, label, type, required, placeholder, options)
-				VALUES (?, ?, ?, ?, ?, ?)
-			`, lastInsertID, field.Label, field.Type, field.Required, field.Placeholder, field.Options)
-
-			if result.Error != nil {
-				tx.Rollback()
-				http.Error(w, "Failed to create form fields", http.StatusInternalServerError)
-				return
-			}
-		}
-	}
-
 	// Commit the transaction
 	if err := tx.Commit().Error; err != nil {
 		http.Error(w, "Transaction failed", http.StatusInternalServerError)
 		return
 	}
 
-	// Load the form fields to include in the response
-	var fields []FormField
-	rows, err := database.DB.Raw("SELECT id, form_id, label, type, required, placeholder, options FROM form_fields WHERE form_id = ?", lastInsertID).Rows()
-	if err != nil {
-		http.Error(w, "Failed to retrieve form fields", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var field FormField
-		if err := database.DB.ScanRows(rows, &field); err != nil {
-			http.Error(w, "Failed to scan form fields", http.StatusInternalServerError)
-			return
-		}
-		fields = append(fields, field)
-	}
-
-	// Create response with both form and fields
-	response := struct {
-		Form   Form        `json:"form"`
-		Fields []FormField `json:"fields"`
-	}{
-		Form:   form,
-		Fields: fields,
-	}
-
-	// Return the created form with its fields
-	json.NewEncoder(w).Encode(response)
+	// Return the created form
+	json.NewEncoder(w).Encode(form)
 }
 
 // GetForms returns all forms for the authenticated user
@@ -298,7 +243,7 @@ func GetForms(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(forms)
 }
 
-// GetFormByID returns a specific form and its fields
+// GetFormByID returns a specific form
 func GetFormByID(w http.ResponseWriter, r *http.Request) {
 	// Set Content-Type header
 	w.Header().Set("Content-Type", "application/json")
@@ -336,35 +281,8 @@ func GetFormByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query form fields
-	var fields []FormField
-	rows, err := database.DB.Raw("SELECT id, form_id, label, type, required, placeholder, options FROM form_fields WHERE form_id = ?", formID).Rows()
-	if err != nil {
-		http.Error(w, "Failed to retrieve form fields", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var field FormField
-		if err := database.DB.ScanRows(rows, &field); err != nil {
-			http.Error(w, "Failed to scan form fields", http.StatusInternalServerError)
-			return
-		}
-		fields = append(fields, field)
-	}
-
-	// Create response with both form and fields
-	response := struct {
-		Form   Form        `json:"form"`
-		Fields []FormField `json:"fields"`
-	}{
-		Form:   form,
-		Fields: fields,
-	}
-
-	// Return the form with its fields
-	json.NewEncoder(w).Encode(response)
+	// Return the form
+	json.NewEncoder(w).Encode(form)
 }
 
 // UpdateForm handles form updates
@@ -439,30 +357,6 @@ func UpdateForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete existing fields
-	result = tx.Exec("DELETE FROM form_fields WHERE form_id = ?", formID)
-	if result.Error != nil {
-		tx.Rollback()
-		http.Error(w, "Failed to update form fields", http.StatusInternalServerError)
-		return
-	}
-
-	// Insert new fields
-	if len(request.Fields) > 0 {
-		for _, field := range request.Fields {
-			result := tx.Exec(`
-				INSERT INTO form_fields (form_id, label, type, required, placeholder, options)
-				VALUES (?, ?, ?, ?, ?, ?)
-			`, formID, field.Label, field.Type, field.Required, field.Placeholder, field.Options)
-
-			if result.Error != nil {
-				tx.Rollback()
-				http.Error(w, "Failed to create form fields", http.StatusInternalServerError)
-				return
-			}
-		}
-	}
-
 	// Commit the transaction
 	if err := tx.Commit().Error; err != nil {
 		http.Error(w, "Transaction failed", http.StatusInternalServerError)
@@ -485,38 +379,11 @@ func UpdateForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query updated form fields
-	var fields []FormField
-	rows, err := database.DB.Raw("SELECT id, form_id, label, type, required, placeholder, options FROM form_fields WHERE form_id = ?", formID).Rows()
-	if err != nil {
-		http.Error(w, "Failed to retrieve form fields", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var field FormField
-		if err := database.DB.ScanRows(rows, &field); err != nil {
-			http.Error(w, "Failed to scan form fields", http.StatusInternalServerError)
-			return
-		}
-		fields = append(fields, field)
-	}
-
-	// Create response with both form and fields
-	response := struct {
-		Form   Form        `json:"form"`
-		Fields []FormField `json:"fields"`
-	}{
-		Form:   form,
-		Fields: fields,
-	}
-
-	// Return the updated form with its fields
-	json.NewEncoder(w).Encode(response)
+	// Return the updated form
+	json.NewEncoder(w).Encode(form)
 }
 
-// DeleteForm removes a form and its fields from the database
+// DeleteForm removes a form from the database
 func DeleteForm(w http.ResponseWriter, r *http.Request) {
 	// Set Content-Type header
 	w.Header().Set("Content-Type", "application/json")
@@ -549,14 +416,6 @@ func DeleteForm(w http.ResponseWriter, r *http.Request) {
 	tx := database.DB.Begin()
 	if tx.Error != nil {
 		http.Error(w, "Failed to begin transaction", http.StatusInternalServerError)
-		return
-	}
-
-	// Delete form fields first to maintain referential integrity
-	result = tx.Exec("DELETE FROM form_fields WHERE form_id = ?", formID)
-	if result.Error != nil {
-		tx.Rollback()
-		http.Error(w, "Failed to delete form fields", http.StatusInternalServerError)
 		return
 	}
 

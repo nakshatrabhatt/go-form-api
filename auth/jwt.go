@@ -35,7 +35,7 @@ func GenerateJWT(userID uint, username, email string) (string, time.Time, error)
 	return tokenString, expirationTime, err
 }
 
-// ValidateToken validates the JWT token
+// Validating the JWT token
 func ValidateToken(signedToken string) (*models.JWTClaim, error) {
 	// Parse the JWT string and store the result in `claims`
 	token, err := jwt.ParseWithClaims(

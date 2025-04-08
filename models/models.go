@@ -4,15 +4,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// Form represents a form in the database
+// Form in the database
 type Form struct {
 	gorm.Model
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	UserID      uint        `json:"userId"`
-	User        User        `json:"-" gorm:"foreignKey:UserID"` // Relationship with User
-	Fields      []FormField `json:"fields" gorm:"foreignKey:FormID"`
-	// Original fields from your forms.go
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	UserID      uint   `json:"userId"`
+	User        User   `json:"-" gorm:"foreignKey:UserID"` // Relationship with User
+	// Original fields 
 	Field1  string `json:"field1"`
 	Field2  string `json:"field2"`
 	Field3  string `json:"field3"`
@@ -43,33 +42,6 @@ type Form struct {
 	Field28 string `json:"field28"`
 	Field29 string `json:"field29"`
 	Field30 string `json:"field30"`
-}
-
-// FormField represents a single field in a form
-type FormField struct {
-	gorm.Model
-	FormID      uint   `json:"formId" gorm:"index"`
-	Label       string `json:"label"`
-	Type        string `json:"type"` // text, number, email, checkbox, radio, etc.
-	Required    bool   `json:"required"`
-	Placeholder string `json:"placeholder"`
-	Options     string `json:"options"` // JSON string for select/radio/checkbox options
-}
-
-// FormResponse is used when submitting responses to a form
-type FormResponse struct {
-	gorm.Model
-	FormID  uint                 `json:"formId" gorm:"index"`
-	Form    Form                 `json:"-" gorm:"foreignKey:FormID"`
-	Answers []FormResponseAnswer `json:"answers" gorm:"foreignKey:ResponseID"`
-}
-
-// FormResponseAnswer stores individual answers for each field
-type FormResponseAnswer struct {
-	gorm.Model
-	ResponseID uint   `json:"responseId" gorm:"index"`
-	FieldID    uint   `json:"fieldId" gorm:"index"`
-	Value      string `json:"value"`
 }
 
 // User represents a user in the database
